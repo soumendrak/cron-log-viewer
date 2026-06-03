@@ -8,14 +8,7 @@
 [![Size](https://img.shields.io/badge/size-%3C20KB-8888aa?style=flat-square)](index.html)
 
 <!-- SVG Logo -->
-<svg viewBox="0 0 120 120" width="120" height="120" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="4" y="4" width="112" height="112" rx="24" stroke="#ff6b35" stroke-width="6" fill="#1a1a2e"/>
-  <circle cx="60" cy="50" r="28" stroke="#ff6b35" stroke-width="4" fill="none"/>
-  <path d="M60 32 L60 50 L76 58" stroke="#ff6b35" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="60" cy="50" r="3" fill="#ff6b35"/>
-  <line x1="28" y1="86" x2="92" y2="86" stroke="#e0e0e0" stroke-width="3" stroke-linecap="round" opacity="0.2"/>
-  <line x1="36" y1="96" x2="74" y2="96" stroke="#e0e0e0" stroke-width="2" stroke-linecap="round" opacity="0.15"/>
-</svg>
+<img src="./logo.svg" alt="Cron Log Viewer" width="120" />
 
 **Browse, filter, and inspect cron job execution logs — no dependencies, one file, ready to deploy.**
 
