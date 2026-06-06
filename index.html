@@ -49,6 +49,33 @@ header .logo {
   flex-shrink: 0;
 }
 
+header .import-group {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+header .import-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+header .import-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+header .import-info {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 header h1 {
   font-size: 1.6rem;
   font-weight: 700;
@@ -325,6 +352,11 @@ tbody td {
     </svg>
     <div>
       <h1>Cron Log Viewer<small>job execution dashboard</small></h1>
+    </div>
+    <div class="import-group">
+      <button class="import-btn" id="importBtn" title="Import JSON or CSV">📥 Import</button>
+      <input type="file" id="importFileInput" accept=".json,.csv" style="display:none">
+      <span class="import-info" id="importInfo"></span>
     </div>
   </header>
 
@@ -613,6 +645,97 @@ document.querySelector('.table-container').addEventListener('click', e => {
 
 filterName.addEventListener('input', () => { expandedId = null; render(); });
 filterStatus.addEventListener('change', () => { expandedId = null; render(); });
+
+// ─── JSON/CSV Import ─────────────────────────────────────────
+const importBtn = document.getElementById('importBtn');
+const importFileInput = document.getElementById('importFileInput');
+const importInfo = document.getElementById('importInfo');
+
+importBtn.addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  let imported = [];
+  try {
+    if (file.name.endsWith('.json')) {
+      let data = JSON.parse(text);
+      if (!Array.isArray(data)) {
+        // Try common wrapper keys
+        data = data.logs || data.entries || data.data || data.records || [data];
+      }
+      if (!Array.isArray(data)) throw new Error('JSON root must be an array');
+      imported = data;
+    } else if (file.name.endsWith('.csv')) {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) throw new Error('CSV must have header row + data rows');
+      const headers = parseCSVLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+      imported = lines.slice(1).filter(l => l.trim()).map((line, idx) => {
+        const vals = parseCSVLine(line);
+        const obj = { id: Date.now() + idx };
+        headers.forEach((h, i) => {
+          const v = vals[i] || '';
+          if (h === 'jobname' || h === 'job_name') obj.jobName = v;
+          else if (h === 'status') obj.status = v.toLowerCase();
+          else if (h === 'exitcode' || h === 'exit_code') {
+            obj.exitCode = v;
+            if (v === '—' || v === '' || v.toLowerCase() === 'running') obj.exitCode = v;
+            else obj.exitCode = parseInt(v) || v;
+          }
+          else if (h === 'duration') obj.duration = v;
+          else if (h === 'durationms' || h === 'duration_ms') obj.durationMs = parseInt(v) || 0;
+          else if (h === 'timestamp') obj.timestamp = v;
+          else if (h === 'log' || h === 'output') obj.log = v;
+        });
+        // Validate/fix fields
+        if (!obj.jobName) obj.jobName = 'unknown';
+        if (!obj.status) obj.status = 'success';
+        if (obj.exitCode === undefined || obj.exitCode === null) obj.exitCode = '—';
+        if (!obj.duration) obj.duration = '0s';
+        if (!obj.durationMs) obj.durationMs = 0;
+        if (!obj.timestamp) obj.timestamp = new Date().toISOString();
+        if (!obj.log) obj.log = 'No log output';
+        return obj;
+      });
+    } else {
+      throw new Error('Unsupported file type (use .json or .csv)');
+    }
+  } catch(err) {
+    alert('Import error: ' + err.message);
+    importFileInput.value = '';
+    return;
+  }
+
+  // Normalize imported entries to match our schema
+  logs = imported.map((entry, idx) => ({
+    id: entry.id || Date.now() + idx,
+    jobName: entry.jobName || entry.job_name || entry.name || 'unknown',
+    status: (entry.status || 'success').toLowerCase(),
+    exitCode: entry.exitCode !== undefined ? entry.exitCode : (entry.exit_code !== undefined ? entry.exit_code : '—'),
+    duration: entry.duration || '—',
+    durationMs: entry.durationMs || entry.duration_ms || 0,
+    timestamp: entry.timestamp || entry.date || new Date().toISOString(),
+    log: entry.log || entry.output || 'No log output'
+  }));
+
+  expandedId = null;
+  importInfo.textContent = `📄 ${logs.length} entries loaded from ${file.name}`;
+  importFileInput.value = '';
+  render();
+});
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '', inQuotes = false;
+  for (const ch of line) {
+    if (ch === '"') { inQuotes = !inQuotes; }
+    else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+    else { current += ch; }
+  }
+  result.push(current.trim());
+  return result;
+}
 
 // ─── Init ────────────────────────────────────────────────────
 render();
